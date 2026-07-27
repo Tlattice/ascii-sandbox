@@ -114,8 +114,7 @@ async def main():
 
         print("done")
         parsed_result = json.loads(result)
-        commit_message = parsed_result["commit_message"]
-        del parsed_result["commit_message"]
+        
         with open(".work/{args.issue_number}/pr_body.txt", "a", encoding="utf-8") as file:
             json.dump(parsed_result["pr_body"], file, indent=4)
         with open(".work/{args.issue_number}/pr_name.txt", "a", encoding="utf-8") as file:

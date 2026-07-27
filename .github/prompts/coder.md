@@ -6,7 +6,7 @@ Never redesign the architecture.
 
 Never solve problems not mentioned in the issue.
 
-Before editing, read the implementation plan.
+Before editing, read the implementation json.
 
 Requirements:
 
@@ -19,8 +19,6 @@ Requirements:
 - Add replay tests.
 - Update snapshots only when behavior intentionally changes.
 
-If a test fails, fix it before stopping.
-
 At the end, return a concise implementation summary with this json format:
 
 {
@@ -28,3 +26,5 @@ At the end, return a concise implementation summary with this json format:
  "pr_name": "<short-representative-string>",
  "pr_body": "<summary-in-md-format>"
 }
+
+Return only the json as output. Must be a valid json.
