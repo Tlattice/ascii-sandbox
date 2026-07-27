@@ -80,7 +80,7 @@ jobs:
           git config user.name "coder-bot"
           git config user.email "coder-bot-email"
 
-          BRANCH="agent/issue-${{ github.event.issue.number }}"
+          BRANCH="issue-${{ github.event.issue.number }}"
           git checkout -b "$BRANCH"
 
           git add .
@@ -89,34 +89,17 @@ jobs:
           COMMIT_MESSAGE=$(cat .work/${ISSUE_NUMBER}/commit_message.txt)
           git commit -m "${COMMIT_MESSAGE}"
           git push --set-upstream origin "$BRANCH"
-      - name: Create PR
-        id: pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NAME=$(cat .work/${ISSUE_NUMBER}/pr_name.txt)
-          PR_BODY_FILE=$(cat .work/${ISSUE_NUMBER}/pr_body.txt)
-          URL=$(gh pr create \
-            --title "${PR_NAME}" \
-            --body-file ${PR_BODY_FILE} \
-            --base main \
-            --head "agent/issue-${{ github.event.issue.number }}")
-
-          echo "url=$URL" > .work/${ISSUE_NUMBER}/pr_url.txt
       - name: Add comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_BODY_FILE=$(cat .work/${ISSUE_NUMBER}/pr_body.txt)
-          PR_URL=$(cat .work/${ISSUE_NUMBER}/pr_url.txt)
           gh issue comment ${{ github.event.issue.number }} \
             --body-file "${PR_BODY_FILE}"
-          gh issue comment ${{ github.event.issue.number }} \
-            --body "Implementation complete. PR: ${PR_URL}"
       - name: Remove ready_to_code label
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
-            --remove-label "ready_to_plan" \
-            --add-label "ready_to_code"
+            --remove-label "ready_to_code" \
+            --add-label "ready_to_review"
