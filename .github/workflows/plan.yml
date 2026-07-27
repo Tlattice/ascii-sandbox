@@ -79,7 +79,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          gh issue edit ${{ github.event.issue.number }} \
-            --add-label "ready_to_code"
-          gh issue edit ${{ github.event.issue.number }} \
+          gh issue edit ${ISSUE_NUMBER} \
             --remove-label "ready_to_plan" \
+            --add-label "ready_to_code"
