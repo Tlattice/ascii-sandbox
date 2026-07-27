@@ -76,6 +76,8 @@ jobs:
             --planner-output ".work/${ISSUE_NUMBER}/planner-output.txt"
 
       - name: Commit changes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "coder-bot"
           git config user.email "coder-bot-email"
