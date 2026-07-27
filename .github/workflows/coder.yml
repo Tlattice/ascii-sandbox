@@ -80,8 +80,7 @@ jobs:
           git config user.name "coder-bot"
           git config user.email "coder-bot-email"
 
-          BRANCH="issue-${{ github.event.issue.number }}"
-          git checkout -b "$BRANCH"
+          gh issue develop "${ISSUE_NUMBER}" --checkout
 
           git add .
           git restore --staged .work
@@ -93,8 +92,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_BODY_FILE=$(cat .work/${ISSUE_NUMBER}/pr_body.txt)
-          gh issue comment ${{ github.event.issue.number }} \
+          PR_BODY_FILE=".work/${ISSUE_NUMBER}/pr_body.txt"
+          gh issue comment "${ISSUE_NUMBER}" \
             --body-file "${PR_BODY_FILE}"
       - name: Remove ready_to_code label
         env:
