@@ -1,0 +1,4 @@
+terms:
+  tick: One simulation update.
+  replay: Deterministic input sequence.
+  snapshot: ASCII representation of world.

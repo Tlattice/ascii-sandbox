@@ -1,0 +1,9 @@
+owners:
+  world:
+    path: internal/world
+
+  renderer:
+    path: internal/renderer
+
+  movement:
+    path: features/movement

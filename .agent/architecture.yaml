@@ -1,0 +1,11 @@
+version: 1
+
+layers:
+  - app
+  - simulation
+  - world
+  - renderer
+
+rules:
+  max_function_lines: 100
+  max_file_lines: 200

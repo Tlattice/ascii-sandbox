@@ -1,0 +1,15 @@
+name: Feature
+
+body:
+
+- type: textarea
+  attributes:
+    label: Description
+
+- type: textarea
+  attributes:
+    label: Acceptance Criteria
+
+- type: textarea
+  attributes:
+    label: Notes

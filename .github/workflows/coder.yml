@@ -1,0 +1,122 @@
+name: Implement changes
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to process"
+        required: true
+        default: "1"
+
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  plan:
+    if: >
+      github.event.issue.state == 'open' &&
+      github.event.label.name == 'ready_to_code'
+
+    runs-on: ubuntu-latest
+    environment: default
+
+    env:
+      ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
+      OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+
+    steps:
+      - name: Show issue info
+        run: |
+          echo "Issue #${{ github.event.issue.number }}"
+          echo "Title: ${{ github.event.issue.title }}"
+          echo "Label: ${{ github.event.label.name }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install openai-agents npcpy
+
+      - name: Prepare workspace
+        run: |
+          mkdir -p .work/${ISSUE_NUMBER}
+
+      - name: Save last comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue view "${ISSUE_NUMBER}" \
+            --comments \
+            --json comments \
+            --jq '.comments[-1].body' \
+            > .work/${ISSUE_NUMBER}/planner-output.txt
+
+      - name: Run coder
+        id: agent_coder
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python .github/scripts/coder.py \
+            --model "${{ env.OPENROUTER_MODEL }}" \
+            --issue-number "${{ github.event.issue.number }}" \
+            --issue-title "${{ github.event.issue.title }}" \
+            --issue-body "${{ github.event.issue.body }}" \
+            --planner-output ".work/${ISSUE_NUMBER}/planner-output.txt"
+
+      - name: Commit changes
+        run: |
+          git config user.name "coder-bot"
+          git config user.email "coder-bot-email"
+
+          BRANCH="agent/issue-${{ github.event.issue.number }}"
+          git checkout -b "$BRANCH"
+
+          git add .
+          git restore --staged .work
+
+          COMMIT_MESSAGE=$(cat .work/${ISSUE_NUMBER}/commit_message.txt)
+          git commit -m "${COMMIT_MESSAGE}"
+          git push --set-upstream origin "$BRANCH"
+      - name: Create PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NAME=$(cat .work/${ISSUE_NUMBER}/pr_name.txt)
+          PR_BODY_FILE=$(cat .work/${ISSUE_NUMBER}/pr_body.txt)
+          URL=$(gh pr create \
+            --title "${PR_NAME}" \
+            --body-file ${PR_BODY_FILE} \
+            --base main \
+            --head "agent/issue-${{ github.event.issue.number }}")
+
+          echo "url=$URL" > .work/${ISSUE_NUMBER}/pr_url.txt
+      - name: Add comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_BODY_FILE=$(cat .work/${ISSUE_NUMBER}/pr_body.txt)
+          PR_URL=$(cat .work/${ISSUE_NUMBER}/pr_url.txt)
+          gh issue comment ${{ github.event.issue.number }} \
+            --body-file "${PR_BODY_FILE}"
+          gh issue comment ${{ github.event.issue.number }} \
+            --body "Implementation complete. PR: ${PR_URL}"
+      - name: Remove ready_to_code label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --remove-label "ready_to_plan" \
+            --add-label "ready_to_code"

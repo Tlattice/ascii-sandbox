@@ -1,0 +1,23 @@
+name: movement
+
+exports:
+  - Direction
+  - Step
+  - Replay
+  - LoadReplay
+  - LoadSnapshot
+
+depends:
+  - internal/world
+
+guarantees:
+  - Movement never leaves the grid or enters a wall tile.
+  - Replay applies steps in order; same inputs produce the same snapshot.
+
+tests:
+  - TestReplayMatchesSnapshot
+  - TestStepIntoWall
+
+snapshot: snapshot.txt
+
+replay: replay.json

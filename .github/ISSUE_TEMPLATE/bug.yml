@@ -1,0 +1,15 @@
+name: Bug
+
+body:
+
+- type: textarea
+  attributes:
+    label: Description
+
+- type: textarea
+  attributes:
+    label: Expected
+
+- type: textarea
+  attributes:
+    label: Actual

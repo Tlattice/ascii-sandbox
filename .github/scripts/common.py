@@ -1,0 +1,252 @@
+"""
+common.py
+
+Shared infrastructure for autonomous coding agents.
+
+Responsibilities
+
+- Build OpenRouter-backed Agents SDK agents
+- Load prompt/context files
+- Logging
+- Workspace helpers
+- Running agents
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Iterable
+
+from openai import AsyncOpenAI
+
+from agents import (
+    Agent,
+    ModelSettings,
+    OpenAIChatCompletionsModel,
+    Runner,
+    function_tool,
+    set_tracing_disabled,
+)
+
+from npcpy.npc_compiler import _DEFAULT_AGENT_TOOLS
+
+set_tracing_disabled(True)
+
+# ---------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------
+
+DEFAULT_MODEL = os.environ["OPENROUTER_MODEL"]
+
+DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+
+ROOT = Path.cwd()
+
+WORK = ROOT / ".work"
+
+DEFAULT_REASONING = True
+
+# ---------------------------------------------------------------------
+# Prompts
+# ---------------------------------------------------------------------
+
+
+def read_file(path: str | Path) -> str:
+    """Return file contents or empty string if missing."""
+
+    path = Path(path)
+
+    if not path.exists():
+        return ""
+
+    return path.read_text(encoding="utf-8")
+
+
+def load_prompt(name: str) -> str:
+    """
+    Load .github/prompts/<name>.md
+    """
+
+    return read_file(ROOT / ".github" / "prompts" / f"{name}.md")
+
+
+def load_agents_rules() -> str:
+    return read_file(ROOT / "AGENTS.md")
+
+
+def load_architecture() -> str:
+    return read_file(ROOT / "docs" / "architecture.md")
+
+
+# ---------------------------------------------------------------------
+# Workspace
+# ---------------------------------------------------------------------
+
+
+def workspace(issue: int | str) -> Path:
+    """
+    Return .work/<issue>
+    """
+
+    path = WORK / str(issue)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def write_workspace_file(issue: int | str, filename: str, content: str) -> Path:
+
+    path = workspace(issue) / filename
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+# ---------------------------------------------------------------------
+# Context builder
+# ---------------------------------------------------------------------
+
+
+def build_context(files: Iterable[str | Path]) -> str:
+    """
+    Combine multiple files into one markdown context.
+    """
+
+    parts = []
+
+    for file in files:
+
+        file = Path(file)
+
+        if not file.exists():
+            continue
+
+        parts.append(f"# FILE: {file}\n")
+        parts.append(file.read_text(encoding="utf-8"))
+        parts.append("\n")
+
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------
+# Agent creation
+# ---------------------------------------------------------------------
+
+
+def make_agent(
+    *,
+    name: str,
+    instructions: str,
+    model: str = DEFAULT_MODEL,
+    tools=None,
+    reasoning: bool = DEFAULT_REASONING,
+) -> Agent:
+
+    api_key = os.environ["OPENROUTER_API_KEY"]
+
+    client = AsyncOpenAI(
+        api_key=api_key,
+        base_url=DEFAULT_BASE_URL,
+    )
+
+    llm = OpenAIChatCompletionsModel(
+        model=model,
+        openai_client=client,
+    )
+
+    functions = tools if tools is not None else _DEFAULT_AGENT_TOOLS
+
+    wrapped = [function_tool(fn) for fn in functions]
+
+    settings = ModelSettings(
+        extra_body={
+            "reasoning": {
+                "enabled": True,
+            }
+        }
+        if reasoning
+        else None
+    )
+
+    return Agent(
+        name=name,
+        instructions=instructions,
+        model=llm,
+        tools=wrapped,
+        model_settings=settings,
+    )
+
+
+# ---------------------------------------------------------------------
+# Runner
+# ---------------------------------------------------------------------
+
+
+async def run_agent(
+    *,
+    agent: Agent,
+    instruction: str,
+    max_turns: int = 20,
+) -> str:
+    """
+    Execute an agent until completion.
+    """
+
+    result = await Runner.run(
+        agent,
+        instruction,
+        max_turns=max_turns,
+    )
+
+    return result.final_output or ""
+
+
+# ---------------------------------------------------------------------
+# Prompt assembly
+# ---------------------------------------------------------------------
+
+
+def compose_instruction(
+    *,
+    system_prompt: str,
+    context: str,
+    task: str,
+) -> str:
+    """
+    Build the final instruction sent to the coding model.
+    """
+
+    return f"""
+# SYSTEM
+
+{system_prompt}
+
+# PROJECT RULES
+
+{load_agents_rules()}
+
+# ARCHITECTURE
+
+{load_architecture()}
+
+# CONTEXT
+
+{context}
+
+# TASK
+
+{task}
+""".strip()
+
+
+# ---------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------
+
+
+def log(issue: int | str, message: str):
+
+    log_file = workspace(issue) / "agent.log"
+
+    with log_file.open("a", encoding="utf-8") as f:
+        f.write(message)
+        f.write("\n")

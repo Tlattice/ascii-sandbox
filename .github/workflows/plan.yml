@@ -1,0 +1,85 @@
+name: Plan changes
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to process"
+        required: true
+        default: "1"
+
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  plan:
+    if: >
+      github.event.issue.state == 'open' &&
+      github.event.label.name == 'ready_to_plan'
+
+    runs-on: ubuntu-latest
+    environment: default
+
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+
+    steps:
+      - name: Show issue info
+        run: |
+          echo "Issue #${{ github.event.issue.number }}"
+          echo "Title: ${{ github.event.issue.title }}"
+          echo "Label: ${{ github.event.label.name }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install openai-agents npcpy
+
+      - name: Prepare workspace
+        run: |
+          mkdir -p .work/${ISSUE_NUMBER}
+
+      - name: Run file scan
+        run: |
+          python .github/scripts/scan_files.py \
+            > .work/${ISSUE_NUMBER}/file-scan-result.json
+
+      - name: Run planner
+        id: agent_planner
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python .github/scripts/planner.py \
+            --issue-number "${{ github.event.issue.number }}" \
+            --issue-title "${{ github.event.issue.title }}" \
+            --issue-body "${{ github.event.issue.body }}" \
+            --file-scan ".work/${ISSUE_NUMBER}/file-scan-result.json"
+            
+      - name: Add comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --body-file ".work/${ISSUE_NUMBER}/plan.md"
+      - name: Remove ready_to_plan label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --add-label "ready_to_code"
+          gh issue edit ${{ github.event.issue.number }} \
+            --remove-label "ready_to_plan" \

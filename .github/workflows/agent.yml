@@ -1,0 +1,83 @@
+name: Agent Development
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to process"
+        required: true
+        default: "1"
+
+  issues:
+    types:
+      - opened
+      - assigned
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    environment: default
+
+    env:
+      ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
+      OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install openai-agents npcpy
+
+      - name: Prepare workspace
+        run: |
+          mkdir -p .work/${ISSUE_NUMBER}
+
+      - name: Fetch issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue view ${ISSUE_NUMBER} \
+            --json title,body \
+            > .work/${ISSUE_NUMBER}/issue.md
+
+      - name: Run planner
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python .github/scripts/planner.py \
+            --issue ${ISSUE_NUMBER} \
+            --issue-file .work/${ISSUE_NUMBER}/issue.md
+
+      - name: Run coder
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python .github/scripts/coder.py \
+            --issue ${ISSUE_NUMBER} \
+            --issue-file .work/${ISSUE_NUMBER}/issue.md
+
+      - name: Run tests
+        run: |
+          go test ./...
+          go test -race ./...
+          go vet ./...
+
+      - name: Run reviewer
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python .github/scripts/reviewer.py \
+            --issue ${ISSUE_NUMBER} \
+            --issue-file .work/${ISSUE_NUMBER}/issue.md
