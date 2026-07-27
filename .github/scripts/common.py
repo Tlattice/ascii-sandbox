@@ -29,7 +29,9 @@ from agents import (
     set_tracing_disabled,
 )
 
-from npcpy.npc_compiler import _DEFAULT_AGENT_TOOLS
+# from npcpy.npc_compiler import _DEFAULT_AGENT_TOOLS
+from npcpy.npc_compiler import _tool_load_file, _tool_edit_file, _tool_stop
+TOOLS = [_tool_load_file, _tool_edit_file, _tool_stop]
 
 set_tracing_disabled(True)
 
@@ -153,14 +155,14 @@ def make_agent(
         openai_client=client,
     )
 
-    functions = tools if tools is not None else _DEFAULT_AGENT_TOOLS
+    functions = tools if tools is not None else TOOLS
 
     wrapped = [function_tool(fn) for fn in functions]
 
     settings = ModelSettings(
         extra_body={
             "reasoning": {
-                "enabled": True,
+                "enabled": False,
             }
         }
         if reasoning
