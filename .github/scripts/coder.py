@@ -37,10 +37,6 @@ def collect_context() -> str:
     """
 
     files = [
-        "README.md",
-        "AGENTS.md",
-        "docs/architecture.md",
-        "docs/coding-rules.md",
     ]
 
     return build_context(files)
@@ -77,7 +73,7 @@ Implement the feature exactly as described.
     report = await run_agent(
         agent=agent,
         instruction="Implement the planned feature.",
-        max_turns=25,
+        max_turns=3,
     )
 
     return report
@@ -108,6 +104,9 @@ async def main():
         filepath = change["filepath"]
         action = change["action"]
         task = change["task"]
+
+        print("Applying change:")
+        print(change)
 
         result = await implement(
             issue_number=args.issue_number,
