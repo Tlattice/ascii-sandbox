@@ -49,10 +49,6 @@ async def implement(
     model: str,
 ) -> str:
 
-    issue_text = issue_body
-
-    context = collect_context()
-
     prompt = compose_instruction(
         system_prompt=load_prompt("coder"),
         context="",
@@ -115,6 +111,8 @@ async def main():
             plan=str(change),
             model=args.model,
         )
+
+        print("done")
         parsed_result = json.loads(result)
         commit_message = parsed_result["commit_message"]
         del parsed_result["commit_message"]
