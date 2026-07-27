@@ -160,7 +160,7 @@ def make_agent(
     wrapped = [function_tool(fn) for fn in functions]
 
     settings = ModelSettings(
-        max_tokens=4000,
+        max_tokens=20000,
         extra_body={
             "reasoning": {
                 "enabled": False,
