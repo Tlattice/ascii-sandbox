@@ -69,7 +69,7 @@ Implement the feature exactly as described.
     report = await run_agent(
         agent=agent,
         instruction="Implement the planned feature.",
-        max_turns=20,
+        max_turns=200,
     )
 
     return report
