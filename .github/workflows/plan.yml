@@ -21,7 +21,7 @@ jobs:
   plan:
     if: >
       github.event.issue.state == 'open' &&
-      github.event.label.name == 'ready_to_plan'
+      contains(github.event.issue.labels.*.name, 'ready_to_plan')
 
     runs-on: ubuntu-latest
     environment: default

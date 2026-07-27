@@ -21,7 +21,7 @@ jobs:
   code:
     if: >
       github.event.issue.state == 'open' &&
-      github.event.label.name == 'ready_to_code'
+      contains(github.event.issue.labels.*.name, 'ready_to_code')
 
     runs-on: ubuntu-latest
     environment: default
