@@ -77,7 +77,7 @@ jobs:
             --body-file ".work/${ISSUE_NUMBER}/plan.md"
       - name: Remove ready_to_plan label
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           gh issue edit ${{ github.event.issue.number }} \
             --add-label "ready_to_code"
