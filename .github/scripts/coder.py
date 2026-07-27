@@ -117,11 +117,11 @@ async def main():
     parsed_result = json.loads(result)
 
     with open(f".work/{args.issue_number}/pr_body.txt", "a", encoding="utf-8") as file:
-        json.dump(parsed_result["pr_body"], file, indent=4)
+        file.write(parsed_result["pr_body"])
     with open(f".work/{args.issue_number}/pr_name.txt", "a", encoding="utf-8") as file:
-        json.dump(parsed_result["pr_name"], file, indent=4)
+        file.write(parsed_result["pr_name"])
     with open(f".work/{args.issue_number}/commit_message.txt", "a", encoding="utf-8") as file:
-        json.dump(parsed_result["commit_message"], file, indent=4)
+        file.write(parsed_result["commit_message"])
 
 
 if __name__ == "__main__":
