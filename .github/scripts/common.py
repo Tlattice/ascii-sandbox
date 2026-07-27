@@ -161,7 +161,6 @@ def make_agent(
 
     settings = ModelSettings(
         max_tokens=4000,
-        reasoning=False,
         extra_body={
             "reasoning": {
                 "enabled": False,
