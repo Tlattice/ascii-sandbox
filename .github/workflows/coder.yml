@@ -83,6 +83,7 @@ jobs:
           git config user.email "coder-bot-email"
 
           gh issue develop "${ISSUE_NUMBER}" --checkout
+          BRANCH=$(git branch --show-current)
 
           git add .
           git restore --staged .work
