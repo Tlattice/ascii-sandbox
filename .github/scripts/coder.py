@@ -96,32 +96,32 @@ async def main():
     with open(args.planner_output, "r") as file:
         changes = json.load(file)["changes"]
 
-    for change in changes:
-        filepath = change["filepath"]
-        action = change["action"]
-        task = change["task"]
+    # for change in changes:
+    #     filepath = change["filepath"]
+    #     action = change["action"]
+    #     task = change["task"]
 
-        print("Applying change:")
-        print(change)
+    print("Applying change:")
+    print(changes)
 
-        result = await implement(
-            issue_number=args.issue_number,
-            issue_title=args.issue_title,
-            issue_body=args.issue_body,
-            plan=str(change),
-            model=args.model,
-        )
+    result = await implement(
+        issue_number=args.issue_number,
+        issue_title=args.issue_title,
+        issue_body=args.issue_body,
+        plan=str(changes),
+        model=args.model,
+    )
 
-        print("done")
-        print(result)
-        parsed_result = json.loads(result)
+    print("done")
+    print(result)
+    parsed_result = json.loads(result)
 
-        with open(".work/{args.issue_number}/pr_body.txt", "a", encoding="utf-8") as file:
-            json.dump(parsed_result["pr_body"], file, indent=4)
-        with open(".work/{args.issue_number}/pr_name.txt", "a", encoding="utf-8") as file:
-            json.dump(parsed_result["pr_name"], file, indent=4)
-        with open(".work/{args.issue_number}/commit_message.txt", "a", encoding="utf-8") as file:
-            json.dump(parsed_result["commit_message"], file, indent=4)
+    with open(f".work/{args.issue_number}/pr_body.txt", "a", encoding="utf-8") as file:
+        json.dump(parsed_result["pr_body"], file, indent=4)
+    with open(f".work/{args.issue_number}/pr_name.txt", "a", encoding="utf-8") as file:
+        json.dump(parsed_result["pr_name"], file, indent=4)
+    with open(f".work/{args.issue_number}/commit_message.txt", "a", encoding="utf-8") as file:
+        json.dump(parsed_result["commit_message"], file, indent=4)
 
 
 if __name__ == "__main__":
