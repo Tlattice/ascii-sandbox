@@ -29,9 +29,7 @@ Do not suggest speculative improvements.
 
 Output exactly:
 
-# Verdict
-
-PASS or FAIL
+{"verdict": "approve"|"changes_requested", "feedback": "..."}
 
 # Findings
 

@@ -160,8 +160,8 @@ async def main():
     model = os.environ["OPENROUTER_MODEL"]
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--issue", type=int, required=True)
-    parser.add_argument("--issue-file", required=True)
+    parser.add_argument("--issue-number", type=int, required=True)
+    parser.add_argument("--output", type=int, required=True)
     parser.add_argument(
         "--model",
         default=model,
@@ -175,7 +175,8 @@ async def main():
         model=args.model,
     )
 
-    print(result)
+    with open(args.output, "w") as file:
+        file.write(result)
 
 
 if __name__ == "__main__":
