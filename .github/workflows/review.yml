@@ -1,186 +1,155 @@
-name: Review
+name: Review changes
 
 on:
-  pull_request:
-"""
-reviewer.py
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to process"
+        required: true
+        default: "1"
+  issues:
+    types:
+      - labeled
 
-Reviews an implementation after the coding agent has finished.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
 
-Output:
-    .work/<issue>/review.md
-"""
+jobs:
+  review:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.state == 'open' &&
+       contains(github.event.issue.labels.*.name, 'ready_to_review'))
 
-from __future__ import annotations
+    runs-on: ubuntu-latest
+    environment: default
 
-import argparse
-import asyncio
-import subprocess
-from pathlib import Path
-import os
+    env:
+      ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
+      OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+      MAX_ATTEMPTS: "3"
 
-from common import (
-    build_context,
-    compose_instruction,
-    load_prompt,
-    make_agent,
-    read_file,
-    run_agent,
-    workspace,
-    write_workspace_file,
-)
+    steps:
+      - name: Load loop state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH=$(gh variable get "BRANCH_${ISSUE_NUMBER}")
+          ATTEMPT=$(gh variable get "ATTEMPT_${ISSUE_NUMBER}" 2>/dev/null || echo 0)
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          echo "ATTEMPT=$ATTEMPT" >> "$GITHUB_ENV"
 
-# Reviewer should not modify the repository.
-NO_TOOLS: list = []
+      - name: Checkout coder branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
 
-def git_diff() -> str:
-    """
-    Return the staged + unstaged diff.
-    """
-    try:
-        return subprocess.check_output(
-            ["git", "diff", "--stat", "--patch"],
-            text=True,
-        )
-    except Exception as exc:
-        return f"Unable to read git diff.\n{exc}"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
+      - name: Install dependencies
+        run: pip install openai-agents npcpy
 
-def collect_context(issue: int) -> str:
-    files = [
-        "README.md",
-        "AGENTS.md",
-        "docs/architecture.md",
-        "docs/coding-rules.md",
-        workspace(issue) / "plan.md",
-        workspace(issue) / "implementation.md",
-    ]
+      - name: Prepare workspace
+        run: mkdir -p .work/${ISSUE_NUMBER}
 
-    return build_context(files)
+      # --- Hard, deterministic gates first. No LLM call if these fail. ---
+      - name: Build
+        id: build
+        continue-on-error: true
+        run: go build ./... 2>&1 | tee .work/${ISSUE_NUMBER}/build.log
 
+      - name: Vet
+        id: vet
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: go vet ./... 2>&1 | tee .work/${ISSUE_NUMBER}/vet.log
 
-async def review(
-    issue: int,
-    issue_file: str,
-    model: str,
-) -> str:
+      - name: Test
+        id: test
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: go test -v ./... 2>&1 | tee .work/${ISSUE_NUMBER}/test.log
 
-    issue_text = read_file(issue_file)
-    plan = read_file(workspace(issue) / "plan.md")
-    implementation = read_file(workspace(issue) / "implementation.md")
-    diff = git_diff()
+      # --- LLM code review, only if the code actually builds and passes ---
+      - name: Run reviewer
+        id: agent_reviewer
+        if: steps.build.outcome == 'success' && steps.test.outcome == 'success'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python .github/scripts/reviewer.py \
+            --model "${{ env.OPENROUTER_MODEL }}" \
+            --issue-number "${{ env.ISSUE_NUMBER }}" \
+            --branch "${{ env.BRANCH }}" \
+            --output ".work/${ISSUE_NUMBER}/review.json"
+          # expects review.json: {"verdict": "approve"|"changes_requested", "feedback": "..."}
 
-    context = collect_context(issue)
+      - name: Decide outcome
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          if [ "${{ steps.build.outcome }}" != "success" ]; then
+            VERDICT="changes_requested"
+            FEEDBACK="**Build failed:**
+            $(cat .work/${ISSUE_NUMBER}/build.log)"
+          elif [ "${{ steps.test.outcome }}" != "success" ]; then
+            VERDICT="changes_requested"
+            FEEDBACK="**Tests failed:**
+            $(cat .work/${ISSUE_NUMBER}/test.log)"
+          else
+            VERDICT=$(jq -r '.verdict' ".work/${ISSUE_NUMBER}/review.json")
+            FEEDBACK=$(jq -r '.feedback' ".work/${ISSUE_NUMBER}/review.json")
+          fi
 
-    prompt = compose_instruction(
-        system_prompt=load_prompt("reviewer"),
-        context=context,
-        task=f"""
-Review the implementation.
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          {
+            echo "feedback<<EOF"
+            echo "$FEEDBACK"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
-GitHub Issue
-------------
+      - name: Post feedback comment
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          gh issue comment "${ISSUE_NUMBER}" --body "${{ steps.decide.outputs.feedback }}"
 
-{issue_text}
+      - name: Route — approved
+        if: steps.decide.outputs.verdict == 'approve'
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          gh issue edit "${ISSUE_NUMBER}" \
+            --remove-label "ready_to_review" \
+            --add-label "ready_to_merge"
 
-Implementation Plan
--------------------
+      - name: Route — changes requested, under limit
+        if: steps.decide.outputs.verdict != 'approve' && env.ATTEMPT < env.MAX_ATTEMPTS
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          gh issue edit "${ISSUE_NUMBER}" \
+            --remove-label "ready_to_review" \
+            --add-label "ready_to_code"
 
-{plan}
-
-Implementation Summary
-----------------------
-
-{implementation}
-
-Git Diff
---------
-
-{diff}
-
-Review against:
-
-- Issue requirements
-- Implementation plan
-- Architecture
-- AGENTS.md
-- Coding rules
-
-Output exactly these sections.
-
-# Verdict
-
-PASS or FAIL
-
-# Findings
-
-Bullet list.
-
-# Missing Requirements
-
-Bullet list.
-
-# Suggested Fixes
-
-Bullet list.
-
-# Architecture Review
-
-Bullet list.
-
-# Test Review
-
-Bullet list.
-
-# Final Summary
-""",
-    )
-
-    agent = make_agent(
-        name="reviewer",
-        model=model,
-        instructions=prompt,
-        tools=NO_TOOLS,
-    )
-
-    report = await run_agent(
-        agent=agent,
-        instruction="Review the implementation.",
-        max_turns=8,
-    )
-
-    write_workspace_file(
-        issue,
-        "review.md",
-        report,
-    )
-
-    return report
-
-
-async def main():
-
-    model = os.environ["OPENROUTER_MODEL"]
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("--issue", type=int, required=True)
-    parser.add_argument("--issue-file", required=True)
-    parser.add_argument(
-        "--model",
-        default=model,
-    )
-
-    args = parser.parse_args()
-
-    result = await review(
-        issue=args.issue,
-        issue_file=args.issue_file,
-        model=args.model,
-    )
-
-    print(result)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+      - name: Route — changes requested, limit exceeded
+        if: steps.decide.outputs.verdict != 'approve' && env.ATTEMPT >= env.MAX_ATTEMPTS
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          gh issue edit "${ISSUE_NUMBER}" \
+            --remove-label "ready_to_review" \
+            --add-label "needs_human"
+          gh issue comment "${ISSUE_NUMBER}" \
+            --body "Automated review loop hit its ${MAX_ATTEMPTS}-attempt limit without approval. Flagging for human review."
