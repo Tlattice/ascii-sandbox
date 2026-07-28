@@ -161,6 +161,7 @@ async def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--issue-number", type=int, required=True)
+    parser.add_argument("--issue-body", type=str, required=True)
     parser.add_argument("--output", type=str, required=True)
     parser.add_argument(
         "--model",
@@ -170,8 +171,8 @@ async def main():
     args = parser.parse_args()
 
     result = await review(
-        issue=args.issue,
-        issue_file=args.issue_file,
+        issue_number=args.issue_number,
+        issue_file=args.issue_body,
         model=args.model,
     )
 

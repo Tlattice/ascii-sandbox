@@ -90,6 +90,7 @@ jobs:
           python .github/scripts/reviewer.py \
             --model "${{ env.OPENROUTER_MODEL }}" \
             --issue-number "${{ env.ISSUE_NUMBER }}" \
+            --issue-body "${{ github.event.issue.body }}"
             --output ".work/${ISSUE_NUMBER}/review.json"
           # expects review.json: {"verdict": "approve"|"changes_requested", "feedback": "..."}
 
