@@ -139,9 +139,6 @@ def read_sections(text: str) -> dict[str, Section]:
     return sections
 
 def write_workspace_file(issue: int | str, filename: str, content: str) -> Path:
-    if filename == OUTPUT_FILENAME:
-        raise Exception("file cannot be 'output.md'")
-
     path = workspace(issue) / filename
     path.write_text(content, encoding="utf-8")
     return path
