@@ -74,7 +74,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment ${{ github.event.issue.number }} \
-            --body-file ".work/${ISSUE_NUMBER}/plan.md"
+            --body-file ".work/${ISSUE_NUMBER}/planner_output.md"
       - name: Remove ready_to_plan label
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}

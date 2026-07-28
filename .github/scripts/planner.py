@@ -20,11 +20,15 @@ from common import (
     load_prompt,
     make_agent,
     run_agent,
-    write_workspace_file
+    write_workspace_file,
+    Section,
+    write_output,
+    read_sections
 )
 
 # Planner should not edit files.
 NO_TOOLS: list = []
+IDENTITY = "planner"
 
 
 # def load_issue(issue_file: str | Path) -> str:
@@ -98,8 +102,11 @@ async def main():
         file_scan=args.file_scan,
         model=args.model,
     )
-
-    write_workspace_file(args.issue_number, "plan.md", result)
+    sections = [
+        Section(f"{IDENTITY}_plan", result, False),
+        Section(f"{IDENTITY}_visible", f"### {IDENTITY} generated a plan.", True),
+    ]
+    write_output(args.issue_number, f"{IDENTITY}_output.md", sections)
 
 
 if __name__ == "__main__":

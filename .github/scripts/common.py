@@ -18,7 +18,10 @@ import os
 from pathlib import Path
 from typing import Iterable
 
+from dataclasses import dataclass
+
 from openai import AsyncOpenAI
+import re
 
 from agents import (
     Agent,
@@ -48,6 +51,7 @@ ROOT = Path.cwd()
 WORK = ROOT / ".work"
 
 DEFAULT_REASONING = True
+
 
 # ---------------------------------------------------------------------
 # Prompts
@@ -95,8 +99,48 @@ def workspace(issue: int | str) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
 
+@dataclass(frozen=True)
+class Section:
+    name: str
+    content: str
+    visible: bool = True
+
+    
+def write_output(issue: int, filename: str, sections: list[Section] ) -> Path:
+    def wrap_invisible(name: str, content: str):
+        return f"<!-- section:{name}:hidden\n{content}\n-->"
+    def wrap_visible(name: str, content: str):
+        return f"<!-- section:{name} -->\n{content}"
+
+    path = workspace(issue) / filename
+    output = []
+    for section in sections:
+        if section.visible:
+            output.append( wrap_visible(section.name, section.content) )
+        else:
+            output.append( wrap_invisible(section.name, section.content) )
+    with open(path, "w", encoding="utf-8") as file:
+        file.write( "\n".join(output) )
+    return path
+
+def read_sections(text: str) -> dict[str, Section]:
+    sections = {}
+
+    pattern = r"<!-- section:(\w+)(?::hidden)? -->\n?(.*?)\n?(?:<!--|$)"
+
+    for match in re.finditer(pattern, text, re.DOTALL):
+        name, content = match.groups()
+        sections[name] = Section(
+            name=name,
+            content=content.strip(),
+            visible=True,
+        )
+
+    return sections
 
 def write_workspace_file(issue: int | str, filename: str, content: str) -> Path:
+    if filename == OUTPUT_FILENAME:
+        raise Exception("file cannot be 'output.md'")
 
     path = workspace(issue) / filename
     path.write_text(content, encoding="utf-8")
