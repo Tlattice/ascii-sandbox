@@ -57,17 +57,14 @@ def collect_context(issue: int) -> str:
 
 
 async def review(
-    issue: int,
-    issue_file: str,
+    issue_number: int,
+    issue_body: str,
     model: str,
 ) -> str:
 
-    issue_text = read_file(issue_file)
-    plan = read_file(workspace(issue) / "plan.md")
-    implementation = read_file(workspace(issue) / "implementation.md")
     diff = git_diff()
 
-    context = collect_context(issue)
+    context = collect_context(issue_number)
 
     prompt = compose_instruction(
         system_prompt=load_prompt("reviewer"),
@@ -78,58 +75,12 @@ Review the implementation.
 GitHub Issue
 ------------
 
-{issue_text}
-
-Implementation Plan
--------------------
-
-{plan}
-
-Implementation Summary
-----------------------
-
-{implementation}
+{issue_body}
 
 Git Diff
 --------
 
 {diff}
-
-Review against:
-
-- Issue requirements
-- Implementation plan
-- Architecture
-- AGENTS.md
-- Coding rules
-
-Output exactly these sections.
-
-# Verdict
-
-PASS or FAIL
-
-# Findings
-
-Bullet list.
-
-# Missing Requirements
-
-Bullet list.
-
-# Suggested Fixes
-
-Bullet list.
-
-# Architecture Review
-
-Bullet list.
-
-# Test Review
-
-Bullet list.
-
-# Final Summary
 """,
     )
 
@@ -147,7 +98,7 @@ Bullet list.
     )
 
     write_workspace_file(
-        issue,
+        issue_body,
         "review.md",
         report,
     )
@@ -172,7 +123,7 @@ async def main():
 
     result = await review(
         issue_number=args.issue_number,
-        issue_file=args.issue_body,
+        issue_body=args.issue_body,
         model=args.model,
     )
 
