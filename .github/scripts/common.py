@@ -141,15 +141,17 @@ def build_context(files: Iterable[str | Path]) -> str:
     If str is received, assume it is the content.
     If Path, load the file.
     """
-
     parts = []
 
     for file in files:
-        if type(file) == type(Path):
+        if isinstance(file, Path):
             if not file.exists():
                 continue
-            file = file.read_text(encoding="utf-8")
-        parts.append(file.read_text(encoding="utf-8"))
+            content = file.read_text(encoding="utf-8")
+        else:
+            content = file
+
+        parts.append(content)
         parts.append("\n")
 
     return "\n".join(parts)
