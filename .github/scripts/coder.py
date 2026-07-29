@@ -14,7 +14,7 @@ import os
 import argparse
 import asyncio
 from pathlib import Path
-import json
+import pyyaml
 
 from common import (
     build_context,
@@ -25,10 +25,14 @@ from common import (
     run_agent,
     workspace,
     write_workspace_file,
+    Section,
+    write_output,
+    read_sections
 )
 
 # Use npcpy's default coding tools.
 TOOLS = None
+IDENTITY = "coder"
 
 
 def collect_context() -> str:
@@ -49,26 +53,24 @@ async def implement(
     model: str,
 ) -> str:
 
-    prompt = compose_instruction(
-        system_prompt=load_prompt("coder"),
-        context="",
-        task=f"""
-Implement the feature exactly as described.
-
-{plan}
-""",
+    context = build_context(
+        [
+            
+            load_prompt("coder"),
+            plan
+        ]
     )
 
     agent = make_agent(
         name="coder",
         model=model,
-        instructions=prompt,
+        instructions=context,
         tools=TOOLS,
     )
 
     report = await run_agent(
         agent=agent,
-        instruction="Implement the planned feature.",
+        instruction=f"Follow the instructions given to implement the changes.",
         max_turns=200,
     )
 
@@ -93,35 +95,28 @@ async def main():
     args = parser.parse_args()
 
     print("Parsing list of changes:")
-    with open(args.planner_output, "r") as file:
-        changes = json.load(file)["changes"]
-
-    # for change in changes:
-    #     filepath = change["filepath"]
-    #     action = change["action"]
-    #     task = change["task"]
+    planner_sections = read_sections(args.planner_output)
 
     print("Applying change:")
-    print(changes)
+    print(planner_sections["planner_plan"])
 
     result = await implement(
         issue_number=args.issue_number,
         issue_title=args.issue_title,
         issue_body=args.issue_body,
-        plan=str(changes),
+        plan=planner_sections["planner_plan"],
         model=args.model,
     )
 
     print("done")
     print(result)
-    parsed_result = json.loads(result)
+    # parsed_result = pyyaml.safe_load(result)
 
-    with open(f".work/{args.issue_number}/pr_body.txt", "a", encoding="utf-8") as file:
-        file.write(parsed_result["pr_body"])
-    with open(f".work/{args.issue_number}/pr_name.txt", "a", encoding="utf-8") as file:
-        file.write(parsed_result["pr_name"])
-    with open(f".work/{args.issue_number}/commit_message.txt", "a", encoding="utf-8") as file:
-        file.write(parsed_result["commit_message"])
+    sections = [
+        Section(f"{IDENTITY}_plan", result, False),
+        Section(f"{IDENTITY}_visible", f"### The {IDENTITY} proposed some changes.", True),
+    ]
+    write_output(args.issue_number, f"{IDENTITY}_output.md", sections)
 
 
 if __name__ == "__main__":

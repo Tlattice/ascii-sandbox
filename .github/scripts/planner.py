@@ -31,10 +31,6 @@ NO_TOOLS: list = []
 IDENTITY = "planner"
 
 
-# def load_issue(issue_file: str | Path) -> str:
-#     return Path(issue_file).read_text(encoding="utf-8")
-
-
 async def plan(
     issue_number: int,
     issue_body: str,
@@ -44,36 +40,22 @@ async def plan(
 
     context = build_context(
         [
-            file_scan
+            file_scan,
+            load_prompt("planner")
         ]
-    )
-
-    prompt = compose_instruction(
-        system_prompt=load_prompt("planner"),
-        context=context,
-        task=f"""
-issue body:
-{issue_body}
-""",
     )
 
     agent = make_agent(
         name="planner",
         model=model,
-        instructions=prompt,
+        instructions=context,
         tools=NO_TOOLS,
     )
 
     plan = await run_agent(
         agent=agent,
-        instruction="Produce the implementation plan.",
+        instruction=f"The requested feature/changes by the user:\n{issue_body}\n",
         max_turns=5,
-    )
-
-    write_workspace_file(
-        issue_number,
-        "plan.md",
-        plan,
     )
 
     return plan
@@ -88,7 +70,7 @@ async def main():
     parser.add_argument("--issue-number", type=int, required=True)
     parser.add_argument("--issue-title", type=str, required=True)
     parser.add_argument("--issue-body", type=str, required=True)
-    parser.add_argument("--file-scan", type=str, required=True)
+    parser.add_argument("--file-scan", type=Path, required=True)
     parser.add_argument(
         "--model",
         default="openrouter/free",
@@ -104,7 +86,7 @@ async def main():
     )
     sections = [
         Section(f"{IDENTITY}_plan", result, False),
-        Section(f"{IDENTITY}_visible", f"### {IDENTITY} generated a plan.", True),
+        Section(f"{IDENTITY}_visible", f"### The {IDENTITY} generated a plan.", True),
     ]
     write_output(args.issue_number, f"{IDENTITY}_output.md", sections)
 

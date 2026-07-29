@@ -1,17 +1,3 @@
-"""
-common.py
-
-Shared infrastructure for autonomous coding agents.
-
-Responsibilities
-
-- Build OpenRouter-backed Agents SDK agents
-- Load prompt/context files
-- Logging
-- Workspace helpers
-- Running agents
-"""
-
 from __future__ import annotations
 
 import os
@@ -152,18 +138,17 @@ def write_workspace_file(issue: int | str, filename: str, content: str) -> Path:
 def build_context(files: Iterable[str | Path]) -> str:
     """
     Combine multiple files into one markdown context.
+    If str is received, assume it is the content.
+    If Path, load the file.
     """
 
     parts = []
 
     for file in files:
-
-        file = Path(file)
-
-        if not file.exists():
-            continue
-
-        parts.append(f"# FILE: {file}\n")
+        if type(file) == type(Path):
+            if not file.exists():
+                continue
+            file = file.read_text(encoding="utf-8")
         parts.append(file.read_text(encoding="utf-8"))
         parts.append("\n")
 
