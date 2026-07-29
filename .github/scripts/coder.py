@@ -14,7 +14,6 @@ import os
 import argparse
 import asyncio
 from pathlib import Path
-import pyyaml
 
 from common import (
     build_context,
