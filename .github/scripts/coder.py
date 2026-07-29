@@ -97,6 +97,10 @@ async def main():
     with open(args.planner_output, "r") as file:
         planner_output = file.read()
     planner_sections = read_sections(planner_output)
+    print("---")
+    print(planner_output)
+    print("---")
+    print(planner_sections)
 
     print("Applying change:")
     print(planner_sections["planner_plan"])
