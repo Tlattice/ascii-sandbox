@@ -57,7 +57,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install openai-agents npcpy
+        run: pip install -r .github/scripts/requirements.txt
 
       - name: Prepare workspace
         run: mkdir -p .work/${ISSUE_NUMBER}

@@ -47,7 +47,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install openai-agents npcpy
+          pip install -r .github/scripts/requirements.txt
 
       - name: Prepare workspace
         run: |
