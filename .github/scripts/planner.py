@@ -78,10 +78,13 @@ async def main():
 
     args = parser.parse_args()
 
+    with open(args.file_scan, "r") as file:
+        file_scan_content = file.read()
+
     result = await plan(
         issue_number=args.issue_number,
         issue_body=args.issue_body,
-        file_scan=args.file_scan,
+        file_scan=file_scan_content,
         model=args.model,
     )
     sections = [
