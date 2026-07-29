@@ -92,34 +92,33 @@ class Section:
     visible: bool = True
 
     
-def write_output(issue: int, filename: str, sections: list[Section] ) -> Path:
-    def wrap_invisible(name: str, content: str):
-        return f"<!-- section:{name}:hidden\n{content}\n-->"
-    def wrap_visible(name: str, content: str):
-        return f"<!-- section:{name} -->\n{content}"
+def write_output(issue: int, filename: str, sections: list[Section]) -> Path:
+    def wrap(name: str, content: str, visible: bool):
+        if visible:
+            return f"<!-- section:{name} -->\n{content}\n<!-- endsection:{name} -->"
+        else:
+            return f"<!-- section:{name}:hidden\n{content}\nendsection:{name} -->"
 
     path = workspace(issue) / filename
-    output = []
-    for section in sections:
-        if section.visible:
-            output.append( wrap_visible(section.name, section.content) )
-        else:
-            output.append( wrap_invisible(section.name, section.content) )
+    output = [wrap(s.name, s.content, s.visible) for s in sections]
+
     with open(path, "w", encoding="utf-8") as file:
-        file.write( "\n".join(output) )
+        file.write("\n".join(output))
     return path
 
 def read_sections(text: str) -> dict[str, Section]:
+    pattern = (
+        r"<!-- section:(\w+)(:hidden)?\s*(?:-->)?\n"
+        r"(.*?)\n"
+        r"(?:<!-- )?endsection:\1 -->"
+    )
     sections = {}
 
-    pattern = r"<!-- section:(\w+)(:hidden)?\s*(?:-->)?\n?(.*?)(?:\n-->|(?=\n<!-- section:)|\Z)"
-
-    for match in re.finditer(pattern, text, re.DOTALL):
-        name, hidden_flag, content = match.groups()
+    for name, hidden_flag, content in re.findall(pattern, text, re.DOTALL):
         sections[name] = Section(
             name=name,
             content=content.strip(),
-            visible=hidden_flag is None,
+            visible=hidden_flag == "",
         )
 
     return sections
