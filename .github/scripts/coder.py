@@ -109,7 +109,7 @@ async def main():
         issue_number=args.issue_number,
         issue_title=args.issue_title,
         issue_body=args.issue_body,
-        plan=planner_sections["planner_plan"],
+        plan=planner_sections["planner_plan"].content,
         model=args.model,
     )
 
