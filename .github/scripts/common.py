@@ -112,14 +112,14 @@ def write_output(issue: int, filename: str, sections: list[Section] ) -> Path:
 def read_sections(text: str) -> dict[str, Section]:
     sections = {}
 
-    pattern = r"<!-- section:(\w+)(?::hidden)? -->\n?(.*?)\n?(?:<!--|$)"
+    pattern = r"<!-- section:(\w+)(:hidden)?\s*(?:-->)?\n?(.*?)(?:\n-->|(?=\n<!-- section:)|\Z)"
 
     for match in re.finditer(pattern, text, re.DOTALL):
-        name, content = match.groups()
+        name, hidden_flag, content = match.groups()
         sections[name] = Section(
             name=name,
             content=content.strip(),
-            visible=True,
+            visible=hidden_flag is None,
         )
 
     return sections
