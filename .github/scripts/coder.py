@@ -94,7 +94,9 @@ async def main():
     args = parser.parse_args()
 
     print("Parsing list of changes:")
-    planner_sections = read_sections(args.planner_output)
+    with open(args.planner_output, "r") as file:
+        planner_output = file.read()
+    planner_sections = read_sections(planner_output)
 
     print("Applying change:")
     print(planner_sections["planner_plan"])
